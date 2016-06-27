@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.link {
+    stroke: #999;
+  stroke-opacity: .6;
+}
+
+.link.hidden {
+  display:none;
+}
+
+.node {
+  stroke: #fff;
+  stroke-width: .5px;
+}
+
+.node text {
+  pointer-events: none;
+  font-family: sans-serif;
+  font: 15px;
+  shape-rendering: crispEdges;
+}
+
+.node text.hidden{
+  display:none;
+}
+
+.node.r{
+  fill: red;
+  stroke-opacity: .8; 
+}
+
+.node.d{
+  fill: blue;
+  stroke-opacity: .8; 
+}
+
+.node.i{
+  fill: purple;
+  stroke-opacity: .8; 
+}
+
+.node.p{
+  fill: grey;
+  opacity: .4;
+}
+
+.node.o{
+  fill: grey;
+  opacity: .4;
+}
+
+.link.t1{
+
+}
+
+
+.link.t2{
+
+}
+
+.link.t3{
+
+}
+
+
+#tooltip {
+        position: absolute;
+        width: 200px;
+        height: auto;
+        padding: 10px;
+        background-color: white;
+        -webkit-border-radius: 10px;
+        -moz-border-radius: 10px;
+        border-radius: 10px;
+        -webkit-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        -moz-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        pointer-events: none;
+      }
+      
+#tooltip.hidden {
+  display: none;
+}
+
+#tooltip p {
+  margin: 0;
+  font-family: sans-serif;
+  font-size: 16px;
+  line-height: 20px;
+}
+
+#radiobuttons {
+  margin-left:auto;
+  margin-right:auto;
+  font-family: sans-serif;
+
+}
+
+.node.hidden{
+  display: none;
+}
+
+button {
+  font-family: sans-serif;
+}
+
+</style>
+<title> Payday Lenders' Donations </title>
+<body>
+        <button id = "offices" align = "left" style="width: 70px"> Group by Office </button> 
+        <button id = "parties" align = "left" style="width: 70px"> Group by Party </button>
+        <button id = "none" align = "left" style="width: 70px"> No Grouping </button>
+        <button id = "showlinks" align = "left" style="width: 70px"> Show Links </button>
+        <div id = "radiobuttons">
+          <form  id = "cycleselect" action = "">
+          <input id = "y2008" type="radio" name="year" value="y2008"> 2008 </input>
+          <input id = "y2010" type="radio" name="year" value="y2010"> 2010 </input>
+          <input id = "y2012" type="radio" name="year" value="y2012"> 2012 </input>
+          <input id = "y2014" type="radio" name="year" value="y2014"> 2014 </input>
+          <input id = "y2016" type="radio" name="year" value="y2016"> 2016 </input>
+          <input id = "yall" type="radio" name="year" value="yall" checked> Total </input>
+
+          
+          </form>
+        </div>
+
+  <div id="tooltip" class="hidden" center = "right">
+        <p><strong><span id="tip_title"> </span></strong></p>
+        <p><span id="value">100</span></p>
+      </div>
+<script type="text/javascript" src="./d3/d3.min.js"></script>  	
+<script>
+
+
+var olinkpath = ("/PDLtest/olinkfile.csv");
+var plinkpath = ("/PDLtest/plinkfile.csv");
+var nodepath = ("/PDLtest/nodefile.csv");
+
+var maxval;
+var height = window.innerHeight-100;
+var width = window.innerWidth-20;
+
+//IMPORTANT: Set range max to largest inteded circle area
+var rScale = d3.scale.linear()
+        .range([0, 25000]);
+
+
+var money = d3.format("$,")
+var linksbroken = true;
+var olinkdump;
+var plinkdump;
+var view = 'none';
+var yselect = 'yall';
+var showlinks = false;
+var collon = true;
+
+var padding = 1;
+
+var color = d3.scale.category20();
+
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .style("display", "block")
+    .style("margin", "auto");
+
+
+var borderPath = svg.append("rect")
+       			.attr("x", 0)
+       			.attr("y", 0)
+       			.attr("height", height)
+       			.attr("width", width)
+       			.style("stroke", "black")
+       			.style("fill", "none")
+       			.style("stroke-width", 5);
+      
+  var force = d3.layout.force()
+    .size([width, height]);
+    
+ 
+d3.csv(nodepath, function(nodes) {
+ 
+  var nodelookup = {};
+  var nodecollector = {};
+
+ 
+
+   count = 0; 
+    nodes.forEach(function(row) {
+    nodelookup[row.name] = count; 
+    row.r_total = +row.r_total;
+    row.r_2016 = +row.r_2016;
+    row.r_2014 = +row.r_2014;
+    row.r_2012 = +row.r_2012;
+    row.r_2010 = +row.r_2010;
+    row.r_2008 = +row.r_2008;
+
+
+    nodecollector[row.name] = {name: row.name, party: row.party, total: row.r_total, t2016: row.r_2016,
+                               t2014: row.r_2014, t2012: row.r_2012, t2010: row.r_2010, t2008: row.r_2008,  
+                               chamber: row.type};
+        
+    count++; 
+ });
+
+//Get all the office links out of of the csv 
+
+d3.csv(olinkpath, function(linkchecker) {
+
+  var olinkcollector = {};
+  indexsource = 0;
+  indextarget = 0; 
+    count= 0;
+    linkchecker.forEach(function(link) {
+  
+	olinkcollector[count] = {source: nodelookup[link.source], target: nodelookup[link.target], type: link.type };
+	count++
+});
+
+//Get all the party links out of the csv
+
+d3.csv(plinkpath, function(linkchecker) {
+
+  var plinkcollector = {};
+  indexsource = 0;
+  indextarget = 0; 
+    count= 0;
+    linkchecker.forEach(function(link) {
+  
+  plinkcollector[count] = {source: nodelookup[link.source], target: nodelookup[link.target], type: link.type };
+  count++
+});
+
+var nodes = d3.values(nodecollector);
+var olinks = d3.values(olinkcollector);
+var plinks = d3.values(plinkcollector);
+olinkdump = JSON.parse(JSON.stringify(olinks));
+plinkdump = JSON.parse(JSON.stringify(plinks));
+
+maxval = d3.max(nodes, function(d){return d.total;});
+rScale.domain([0, maxval]);
+
+  // Create the link lines.
+  var link = svg.selectAll(".link")
+      .data(plinks)
+     .enter().append("line")
+     .attr("class", function(d) { return "link " + d.type; })
+     .classed("hidden", function(d){
+            if (!showlinks){
+              return true;
+            }
+            else{
+              return false;
+            }
+          });
+
+        
+  // Create the node circles.
+  var node = svg.selectAll(".node")
+      .data(nodes)
+    .enter().append("g")
+      .attr("class", "node")
+    .call(force.drag);
+ 
+ //put in little circles to drag
+  node.append("circle")
+      .attr("r", function(d){
+      	
+
+      	return rScale(Math.floor(Math.sqrt(d.total/Math.PI)));
+      })
+    .attr("class", function(d) { 
+    	return "node " + d.party; })
+    .on("mouseover", function(d) {
+
+        updatetooltip(this);
+
+        if(d.party != 'p'){
+          tip.select("#value")
+            .html("Total: "+ money(d.total) +"<br>"+
+              "2016: "+ money(d.t2016) +"<br>" +
+              "2014: "+ money(d.t2014) +"<br>" +
+              "2012: "+ money(d.t2012) + "<br>" +
+              "2010: "+ money(d.t2010) + "<br>"+
+              "2008: "+ money(d.t2008) + "<br>");
+          }
+        else if(d.party == 'p'){
+          tip.select("#value")
+            .html('');
+        }
+              
+
+            d3.select("#tip_title")
+            .html(d.name + "<br>"+ d.chamber);
+         
+          d3.select("#tooltip").classed("hidden", false);
+
+         })
+     .on("mouseout", function() {
+     
+      //Hide the tooltip
+      d3.select("#tooltip").classed("hidden", true);
+     })
+    .call(force.drag);
+
+svg.selectAll(".node.p")
+            .classed("hidden", true)
+            .attr("r", 0);
+svg.selectAll(".node.o")
+            .classed("hidden", true)
+            .attr("r", 0);
+
+d3.selectAll("button")
+  .on("click", function(){
+    var ButID = d3.select(this).attr("id");
+
+
+
+    if (ButID == "offices"){
+
+        svg.selectAll(".node.p")
+            .classed("hidden", true)
+            .attr("r", 0);
+        svg.selectAll(".node.o")
+            .classed("hidden", false)
+            .attr("r", 20);
+        olinks = JSON.parse(JSON.stringify(olinkdump));
+        collon = false;
+        view = 'offices';
+        restart(olinks);
+
+     };
+
+    if (ButID == "parties"){
+
+        plinks = JSON.parse(JSON.stringify(plinkdump));
+        collon = false;
+        view = 'parties';
+        svg.selectAll(".node.p")
+            .classed("hidden", false)
+            .attr("r", 20);
+        svg.selectAll(".node.o")
+            .classed("hidden", true)
+            .attr("r", 0);
+        restart(plinks);
+
+    };
+
+    if (ButID == "none"){
+        svg.selectAll(".node.p")
+            .classed("hidden", true)
+            .attr("r", 0);
+        svg.selectAll(".node.o")
+            .classed("hidden", true)
+            .attr("r", 0);
+        var nolinks = [];
+        collon = true;
+        view = 'none';
+        restart(nolinks);
+    };
+
+    if (ButID == "showlinks"){
+        if(showlinks)
+        {
+            d3.selectAll(".link")
+              .classed("hidden", true);
+
+            showlinks = !showlinks;
+        }
+        else{
+            d3.selectAll(".link")
+                .classed("hidden", false);
+
+            showlinks = !showlinks;        
+          }
+    };
+
+    }
+    
+  );
+
+  d3.selectAll("input")
+    .on("change", function(){
+      var formval = d3.select(this).attr("value");
+      console.log(formval);
+
+      if (formval == "yall"){
+        node.selectAll("circle")
+            .transition()
+            .attr("r", function(d){
+
+              return rScale(Math.floor(Math.sqrt(d.total/Math.PI)));
+              });
+      }
+      if (formval == "y2016"){
+        node.selectAll("circle")
+            .transition()
+            .attr("r", function(d){
+
+              return rScale(Math.floor(Math.sqrt(d.t2016/Math.PI)));
+              });
+      }
+      if (formval == "y2014"){
+        node.selectAll("circle")
+            .transition()
+            .attr("r", function(d){
+
+              return rScale(Math.floor(Math.sqrt(d.t2014/Math.PI)));
+              });
+      }
+      if (formval == "y2012"){
+        node.selectAll("circle")
+            .transition()
+            .attr("r", function(d){
+
+              return rScale(Math.floor(Math.sqrt(d.t2012/Math.PI)));
+              });
+      }
+      if (formval == "y2010"){
+        node.selectAll("circle")
+            .transition()
+            .attr("r", function(d){
+
+              return rScale(Math.floor(Math.sqrt(d.t2010/Math.PI)));
+              });
+      }
+      if (formval == "y2008"){
+        node.selectAll("circle")
+            .transition()
+            .attr("r", function(d){
+
+              return rScale(Math.floor(Math.sqrt(d.t2008/Math.PI)));
+              });
+      }
+
+    });
+      
+ force
+      .nodes(nodes)
+      .linkDistance(50)
+      .charge([0])
+      .chargeDistance([200])
+      .gravity([0])
+      .start();
+
+
+
+      function restart(links) {
+          link = link.data(links);
+          link.exit().remove();
+          link.enter().insert("line", ".node").attr("class", function(d) { return "link " + d.type; })
+          .classed("hidden", function(d){
+            if (!showlinks){
+              return true;
+            }
+            else{
+              return false;
+            }
+          });
+
+          force.links(links)
+          .charge(function(d){
+          if (view == 'none'){
+            return [0];
+          }
+          else {
+            if (d.party == 'p'){
+              return [0];
+            }
+            else{
+            return [-50];
+          }
+          }
+        })
+          .gravity(function(){
+        if (view == 'none'){
+          return [0];
+        }
+        else {
+          return [1];
+        }
+        });
+          force.start();
+        }
+
+
+  svg.on("mousemove", function(e){
+    updatetooltip(this);
+  });
+
+  force.on("tick", function() {
+  
+
+    link.attr("x1", function(d) { return d.source.x; })
+        .attr("y1", function(d) { return d.source.y; })
+        .attr("x2", function(d) { return d.target.x; })
+        .attr("y2", function(d) { return d.target.y; });
+//I think that translate changes all of the x and ys at once instead of one by one? idk though
+    svg.selectAll("circle")
+      .attr("cx", function(d) { return d.x = Math.max(getradius(d.total) + 5, Math.min(width - getradius(d.total) - 5, d.x)); })
+      .attr("cy", function(d) { return d.y = Math.max(getradius(d.total) + 4, Math.min(height - getradius(d.total) - 4, d.y)); });
+   
+   if(collon){node.each(collide(0.1));}
+
+  });
+ 
+function collide(alpha) {
+  var quadtree = d3.geom.quadtree(nodes);
+  return function(d) {
+    var rb = 2 * getradius(d.total) + padding,
+        nx1 = d.x - rb,
+        nx2 = d.x + rb,
+        ny1 = d.y - rb,
+        ny2 = d.y + rb;
+    quadtree.visit(function(quad, x1, y1, x2, y2) {
+      if (quad.point && (quad.point !== d)) {
+        var x = d.x - quad.point.x,
+            y = d.y - quad.point.y,
+            l = Math.sqrt(x * x + y * y);
+          if (l < rb) {
+          l = (l - rb) / l * alpha;
+          d.x -= x *= l;
+          d.y -= y *= l;
+          quad.point.x += x;
+          quad.point.y += y;
+        }
+      }
+      return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+    });
+  };
+}
+  });
+  });
+  });
+
+function getradius(total){
+  
+  return Math.floor(rScale(Math.floor(Math.sqrt(total/Math.PI))));
+};
+
+function updatetooltip(e){
+          var coordinates = [0, 0];
+          coordinates = d3.mouse(e);
+          var Mx = coordinates[0];
+          var My = coordinates[1];
+          var side;
+          var vside;
+
+          if(Mx >= width*3/4){
+            side = -250;
+          }
+          else if (Mx <= width*3/4){
+            side = 50;
+          }
+
+          if(My >= height-175){
+            vside = -100;
+          }
+          else if (My <= height+100){
+            vside = 75;
+          }
+
+
+          //Update the tooltip position and value
+          tip = d3.select("#tooltip")
+                  .style("left", Mx+side + "px")
+                  .style("top", My+vside + "px");
+}
+
+</script>
+</body>
