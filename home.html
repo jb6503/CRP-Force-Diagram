@@ -135,9 +135,9 @@ button {
 <script>
 
 
-var olinkpath = ("/PDLtest/olinkfile.csv");
-var plinkpath = ("/PDLtest/plinkfile.csv");
-var nodepath = ("/PDLtest/nodefile.csv");
+var olinkpath = ("./PDLtest/olinkfile.csv");
+var plinkpath = ("./PDLtest/plinkfile.csv");
+var nodepath = ("./PDLtest/nodefile.csv");
 
 var maxval;
 var height = window.innerHeight-100;
@@ -279,7 +279,7 @@ rScale.domain([0, maxval]);
 
         updatetooltip(this);
 
-        if(d.party != 'p'){
+        if(d.party != 'p' && d.party != 'o'){
           tip.select("#value")
             .html("Total: "+ money(d.total) +"<br>"+
               "2016: "+ money(d.t2016) +"<br>" +
@@ -288,7 +288,7 @@ rScale.domain([0, maxval]);
               "2010: "+ money(d.t2010) + "<br>"+
               "2008: "+ money(d.t2008) + "<br>");
           }
-        else if(d.party == 'p'){
+        else{
           tip.select("#value")
             .html('');
         }
@@ -558,10 +558,10 @@ function updatetooltip(e){
           }
 
           if(My >= height-175){
-            vside = -100;
+            vside = -75;
           }
           else if (My <= height+100){
-            vside = 75;
+            vside = 50;
           }
 
 
